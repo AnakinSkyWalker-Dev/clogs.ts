@@ -1,0 +1,46 @@
+{
+  "name": "clogs.ts",
+  "version": "1.4.1",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "author": "Fábio Ghizoni",
+  "description": "Small TypeScript library providing colored terminal logging and gradient text. No build step — ships raw .ts files consumed directly via ESM.",
+  "files": [
+    "src/"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "test": "node ./src/test/index.ts",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "log",
+    "custom",
+    "colors",
+    "logger",
+    "logging",
+    "typescript"
+  ],
+  "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^12.5.1",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "prettier": "^3.8.4"
+  }
+}
