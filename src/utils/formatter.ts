@@ -1,3 +1,9 @@
+import { ANSI_REGEX } from "../constants/index.ts";
+
+export function stripAnsi(text: string): string {
+  return text.replace(ANSI_REGEX, "");
+}
+
 export function formatDate() {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");

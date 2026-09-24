@@ -4,18 +4,29 @@ import { Logger } from "./logger.ts";
 export { Logger } from "./logger.ts";
 
 // ── Colors ──
-export { gradient, hexToRgb, rgbToAnsi, rgbToAnsiBg } from "./colors/gradient.ts";
+export {
+  gradient,
+  hexToRgb,
+  rgbToAnsi,
+  rgbToAnsiBg,
+} from "./colors/gradient.ts";
 export { bg, colorMode, COLORS, fg } from "./colors/index.ts";
 export { getBgPalette, getPalette } from "./colors/palette.ts";
+export { cssBg, cssFg, cssReset } from "./colors/css/index.ts";
 
 // ── Environment ──
-export type { Environment } from "./types/index.ts";
 export { getEnvironment, setEnvironment } from "./utils/env.ts";
 
 // ── Types ──
 export type {
-  BasicColorName, ColorMode,
-  ColorName, ExtendedColorName, LoggerOptions, Palette
+  BasicColorName,
+  ColorMode,
+  ColorName,
+  Environment,
+  ExtendedColorName,
+  LoggerOptions,
+  LogLevel,
+  Palette,
 } from "./types/index.ts";
 
 // ── Default logger ──

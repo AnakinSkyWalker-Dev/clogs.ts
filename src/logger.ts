@@ -2,16 +2,30 @@ import { cssFg } from "./colors/css/fg.ts";
 import { cssReset } from "./colors/css/index.ts";
 import { COLORS } from "./colors/index.ts";
 import { getPalette } from "./colors/palette.ts";
-import type { LoggerOptions, Palette, RuntimeImportMeta } from "./types/index.ts";
+import { DEFAULT_LOG_PATH } from "./constants/index.ts";
+import type {
+  ColorName,
+  Environment,
+  LoggerOptions,
+  LogLevel,
+  Palette,
+  RuntimeImportMeta,
+} from "./types/index.ts";
 import { getEnvironment } from "./utils/env.ts";
-import { formatDate, stringify } from "./utils/formatter.ts";
+import { formatDate, stringify, stripAnsi } from "./utils/formatter.ts";
 
-const ANSI_REGEX = /\x1b\[[0-9;]*m/g;
-const DEFAULT_LOG_PATH = "./logs";
+const LEVEL_COLOR: Record<LogLevel, ColorName> = {
+  info: "blue",
+  ok: "green",
+  warn: "yellow",
+  error: "red",
+  debug: "purple",
+  log: "white",
+  group: "cyan",
+};
 
-function stripAnsi(text: string): string {
-  return text.replace(ANSI_REGEX, "");
-}
+const TIMESTAMP_COLOR: ColorName = "gray";
+const PREFIX_COLOR: ColorName = "sky";
 
 let cachedPalette: Palette | null = null;
 let paletteInit = false;
@@ -31,7 +45,7 @@ export class Logger {
 
   constructor(options?: LoggerOptions) {
     const processLogPath =
-      typeof process !== "undefined" ? process.env?.LOG_PATH : undefined;
+      getEnvironment() === "node" ? process.env?.LOG_PATH : undefined;
     const astroLogPath = (import.meta as RuntimeImportMeta).env?.LOG_PATH;
 
     if (options?.path !== undefined) {
@@ -49,119 +63,102 @@ export class Logger {
     }
   }
 
-  async #writeToFile(env: string, line: string) {
+  child(options?: LoggerOptions): Logger {
+    if (options?.prefix !== undefined) {
+      this.prefix = this.prefix
+        ? `${this.prefix}:${options.prefix}`
+        : options.prefix;
+    }
+    return this;
+  }
+
+  async #writeToFile(env: Environment, line: string) {
     if (env !== "node" || !this.path) return;
 
     try {
-      const { appendFileLog } = await import("./utils/appendFile.ts")
+      const { appendFileLog } = await import("./utils/appendFile.ts");
       await appendFileLog(this.path, line);
     } catch {
       // silent — file logging should never crash the app
     }
   }
 
-  #formatMessage(level: string, color: keyof Palette, ...args: unknown[]) {
+  #write(level: LogLevel, ...args: unknown[]) {
     const { date, time } = formatDate();
     const indent = this.#indent > 0 ? " ".repeat(this.#indent * 2) : "";
     const message = indent + args.map(stringify).join(" ");
-    return { date, time, level, color, message };
-  }
-
-  #writeBrowser(
-    date: string,
-    time: string,
-    level: string,
-    color: keyof Palette,
-    message: string,
-  ) {
-    const prefix = this.prefix ? `[${this.prefix}] ` : "";
-
-    console.log(
-      `%c${time} %c${date} %c${prefix}%c${level} %c${message}`,
-      cssFg.gray,
-      cssFg.gray,
-      cssFg.orange,
-      cssFg[color],
-      cssReset,
-    );
-  }
-
-  #writeTerminal(
-    date: string,
-    time: string,
-    level: string,
-    color: keyof Palette,
-    message: string,
-  ) {
-    const palette = resolvedPalette();
-    const prefix = this.prefix ? `[${this.prefix}] ` : "";
-    const line = `${time} ${date} ${prefix}${level} ${message}`;
-
-    if (!palette) {
-      process.stdout.write(line + "\n");
-      return;
-    }
-
-    process.stdout.write(
-        `${palette.gray}${time}${COLORS.reset} ` +
-        `${palette.gray}${date}${COLORS.reset} ` +
-        `${this.prefix ? `${palette.lime}[${this.prefix}]${COLORS.reset} ` : ""}` +
-        `${palette[color]}${level}${COLORS.reset} ` +
-        `${palette.white}${message}${COLORS.reset}\n`,
-    );
-  }
-
-  #write(level: string, color: keyof Palette, ...args: unknown[]) {
-    const {
-      date,
-      time,
-      level: lvl,
-      color: c,
-      message,
-    } = this.#formatMessage(level, color, ...args);
-
+    const prefix = this.prefix ? `[${this.prefix}]` : "";
     const env = getEnvironment();
 
+    const plain = [time, date, level, prefix, message]
+      .filter(Boolean)
+      .join(" ");
+
     if (this.path) {
-      const fileMessage = stripAnsi(message);
-      const prefix = this.prefix ? `[${this.prefix}] ` : "";
-      const fileLine = `${time} ${date} ${prefix}${lvl} ${fileMessage}`;
-      void this.#writeToFile(env, fileLine);
+      void this.#writeToFile(env, stripAnsi(plain));
     }
 
     if (env === "browser") {
-      this.#writeBrowser(date, time, lvl, c, message);
-    } else {
-      this.#writeTerminal(date, time, lvl, c, message);
+      const formats = [`%c${time} ${date}`, `%c${level}`];
+      const styles = [cssFg[TIMESTAMP_COLOR], cssFg[LEVEL_COLOR[level]]];
+
+      if (prefix) {
+        formats.push(`%c${prefix}`);
+        styles.push(cssFg[PREFIX_COLOR]);
+      }
+
+      formats.push("%s");
+      console.log(formats.join(" "), ...styles, message);
+      return;
     }
+
+    const palette = resolvedPalette();
+
+    if (!palette) {
+      process.stdout.write(`${plain}\n`);
+      return;
+    }
+
+    const reset = COLORS.reset;
+    const segments = [
+      `${palette[TIMESTAMP_COLOR]}${time} ${date}${reset}`,
+      `${palette[LEVEL_COLOR[level]]}${level}${reset}`,
+    ];
+
+    if (prefix) {
+      segments.push(`${palette[PREFIX_COLOR]}${prefix}${reset}`);
+    }
+
+    segments.push(message);
+    process.stdout.write(`${segments.join(" ")}\n`);
   }
 
   Info(...args: unknown[]) {
-    this.#write("info", "blue", ...args);
+    this.#write("info", ...args);
   }
 
   Success(...args: unknown[]) {
-    this.#write("ok", "green", ...args);
+    this.#write("ok", ...args);
   }
 
   Warn(...args: unknown[]) {
-    this.#write("warn", "yellow", ...args);
+    this.#write("warn", ...args);
   }
 
   Error(...args: unknown[]) {
-    this.#write("error", "red", ...args);
+    this.#write("error", ...args);
   }
 
   Debug(...args: unknown[]) {
-    this.#write("debug", "purple", ...args);
+    this.#write("debug", ...args);
   }
 
   Log(...args: unknown[]) {
-    this.#write("log", "white", ...args);
+    this.#write("log", ...args);
   }
 
   Group(title: string) {
-    this.#write("group", "cyan", title);
+    this.#write("group", title);
     this.#indent++;
   }
 

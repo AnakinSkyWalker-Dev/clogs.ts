@@ -8,8 +8,6 @@ import { c256 } from "./foreground/c256.ts";
 import { truecolor } from "./foreground/truecolor.ts";
 import { getBgPalette, getPalette } from "./palette.ts";
 
-export { esc };
-
 const supportsColor = (): ColorMode => {
   if (typeof process === "undefined") return false;
   if (process.env.NO_COLOR) return false;
@@ -45,7 +43,7 @@ export const fg = (color: ColorName, text: string): string => {
 export const COLORS: ColorSet = {
   reset: `${esc}[0m`,
 
-  basic,
+  basic: basic,
   c256,
   truecolor,
   bg: {

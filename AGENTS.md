@@ -8,10 +8,11 @@ DevTools styling, and gradient text. It has no build step: the package ships raw
 
 ## Toolchain
 
-- Runtime: Node.js 24.1
-- Package manager: pnpm 12.5.1
+- Runtime: Node.js 24 or newer (`engines.node >= 24`)
+- Package manager: pnpm 12.5.1 or newer
 - TypeScript configuration: `tsconfig.json`
-- Formatting: Prettier 3 with its default configuration
+- Formatting: Prettier 3 with default configuration
+- Module system: ESM (`"type": "module"`)
 
 Use `pnpm` for package commands. Do not substitute npm or Yarn unless the user
 explicitly asks for it.
@@ -30,7 +31,7 @@ pnpm install
 pnpm test
 ```
 
-The test command runs `node ./src/test/index.ts`. Tests use a small, local
+The test command runs `node ./src/test/index.ts`. Tests use a small local
 assertion runner; there is no Jest, Vitest, or other test framework.
 
 ### Run one test module
@@ -70,16 +71,15 @@ pnpm exec tsc --noEmit
 ```
 
 TypeScript is not declared in `package.json`, so install or provide it before
-using this command in a fresh environment. The current source has two stale
-imports in `src/colors/css/fg.ts:1` and `src/colors/css/bg.ts:1` (`../../types.ts`
-does not exist); fix those imports before treating a type-check run as green.
+using this command in a fresh environment. A globally installed `tsc` works in
+this checkout.
 
 ### Lint and build
 
-There is no lint configuration, ESLint dependency, lint script, build script, or
-compiled output in this repository. Do not claim that lint or build passes. If a
-change adds linting or compilation, add the configuration, dependencies, and
-package scripts explicitly.
+There is no lint configuration, ESLint dependency, lint script, build script,
+or compiled output in this repository. Do not claim that lint or build passes.
+If a change adds linting or compilation, add the configuration, dependencies,
+and package scripts explicitly.
 
 ## Project layout
 
@@ -88,15 +88,19 @@ src/
   index.ts              Public ESM barrel and default logger
   logger.ts             Logger class, environment-aware output, file logging
   types/
-    index.ts            Public color, palette, environment, and logger types
-    logger.ts           LoggerOptions, Environment, RuntimeImportMeta
+    index.ts            Barrel re-exporting all public types
+    logger.ts           LoggerOptions, LogLevel, Environment, RuntimeImportMeta
+    colors.ts           Color mode, palette, and ANSI code literal types
   colors/
     index.ts            Color detection, fg(), bg(), COLORS
+    definitions.ts      Single source of truth: COLOR_HEX + BASIC_ALIAS
+    build.ts            Palette builders (truecolor/256/basic/css from hex)
+    hex.ts              hexToRgb helper
     escape.ts           ANSI escape prefix
     palette.ts          Foreground/background palette resolution
     gradient.ts         Hex-to-RGB and ANSI gradient helpers
     css/
-      index.ts          Browser CSS reset
+      index.ts          Browser CSS reset and CSS color exports
       fg.ts             Browser foreground CSS colors
       bg.ts             Browser background CSS colors
     foreground/
@@ -107,6 +111,7 @@ src/
       basic.ts          Basic ANSI background palette
       c256.ts           256-color ANSI background palette
       truecolor.ts      Truecolor ANSI background palette
+      t.ts              Shared color-name tuple and derived type
   utils/
     env.ts              Environment detection and test override
     formatter.ts        Date formatting and value serialization
@@ -138,6 +143,7 @@ src/
 - Keep lines readable; let Prettier wrap long expressions and call chains.
 - Do not add formatting configuration unless the project intentionally adopts
   one.
+- Do not add comments unless the user asks for them or a comment is essential.
 
 ### Naming
 
@@ -184,8 +190,8 @@ src/
 - Tests use `process.exit(1)` through `summary()` when assertions fail.
 - Do not swallow errors in core rendering or color conversion unless the
   existing API explicitly defines a fallback.
-- Because `Error` is a public logger export, tests that need the global
-  constructor must use `globalThis.Error`.
+- Because `Error` is a public logger export, use `globalThis.Error` when a test
+  needs the native constructor instead of shadowing the public export.
 
 ## Test conventions
 
@@ -193,7 +199,8 @@ src/
   `src/test/index.ts`.
 - Use `assert(condition, message)` from `src/test/helpers.ts`.
 - Keep tests deterministic and avoid global mutable state where possible.
-- Restore environment overrides after tests that change them.
+- Restore environment overrides after tests that change them with
+  `setEnvironment()`.
 - Remember that logger tests write to `./logs`; test output and log files are
   expected side effects.
 - Run the complete suite after any public API, color, environment, or file
@@ -207,7 +214,7 @@ src/
   status.
 - File logging is enabled by `LOG_PATH` or `LoggerOptions.path`.
 - File output is plain text with ANSI escapes removed and uses
-  `HH:mm:ss DD/MM/YYYY [prefix] level message`.
+  `HH:mm:ss DD/MM/YYYY level [prefix] message`.
 - Browser styling is intended for DevTools, not arbitrary browser consoles.
 
 ## External agent rules

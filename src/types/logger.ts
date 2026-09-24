@@ -1,3 +1,6 @@
+export type LogLevel =
+  "info" | "ok" | "warn" | "error" | "debug" | "log" | "group";
+
 export type LoggerOptions = {
   path?: string;
   prefix?: string;

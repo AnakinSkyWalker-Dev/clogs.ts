@@ -1,13 +1,11 @@
 import type { Palette } from "../types/index.ts";
 import { colorMode, COLORS } from "./index.ts";
 
-function detectPalette(
-  palettes: {
-    truecolor: Palette;
-    c256: Palette;
-    basic: Palette;
-  },
-): Palette | null {
+function detectPalette(palettes: {
+  truecolor: Palette;
+  c256: Palette;
+  basic: Palette;
+}): Palette | null {
   switch (colorMode) {
     case "truecolor":
       return palettes.truecolor;
